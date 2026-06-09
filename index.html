@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Ledger Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <style>
+        /* Light Theme Variables (Default) */
+        :root { 
+            --bg: #f8fafc; 
+            --card: #ffffff; 
+            --text: #334155; 
+            --border: #e2e8f0; 
+            --primary: #0f172a; 
+            --accent: #2563eb; 
+            --danger: #ef4444; 
+            --success: #10b981; 
+            --warning: #f59e0b; 
+            --input-bg: #ffffff;
+        }
+
+        /* Dark Theme Variables */
+        body.dark-mode {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f1f5f9;
+            --border: #334155;
+            --primary: #f8fafc;
+            --accent: #3b82f6;
+            --input-bg: #0f172a;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background-color 0.3s, color 0.3s; }
+        body { background: var(--bg); color: var(--text); padding: 2rem; padding-bottom: 6rem; margin: 0; display: grid; grid-template-columns: 350px 1fr; gap: 2rem; align-items: start; min-height: 100vh; position: relative;}
+        
+        @media (max-width: 1024px) {
+            body { grid-template-columns: 1fr; padding-bottom: 7rem; }
+            .header-stats { flex-direction: column; text-align: left; gap: 1rem; }
+            .stat-box.right { text-align: left; border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 1rem;}
+        }
+
+        .card { background: var(--card); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        h1, h2, h3 { color: var(--primary); margin-top: 0; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.9rem; font-weight: bold; margin-bottom: 0.3rem; }
+        input, select { width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px; font-size: 1rem; background: var(--input-bg); color: var(--text); color-scheme: light dark;}
+        
+        .btn { width: 100%; padding: 0.8rem; background: var(--primary); color: var(--bg); border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 0.5rem; transition: 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--border); }
+        .btn-outline:hover { background: var(--bg); }
+        .btn-success { background: var(--success); color: white; border: none; }
+        .btn-success:hover { opacity: 0.9; }
+        .btn-danger { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;}
+        .btn-warning { background: var(--warning); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;}
+        
+        /* Top right utility buttons */
+        .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+        .btn-utility { background: transparent; color: var(--primary); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 0.5rem; transition: 0.2s;}
+        .btn-utility:hover { background: var(--bg); }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.90rem; margin-top: 1rem; }
+        th, td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg); position: sticky; top: 0; color: var(--primary); }
+        .num { text-align: right; font-family: monospace; font-size: 0.95rem;}
+        .percent-subtext { font-size: 0.75rem; color: #64748b; display: block; }
+        .withdrawn-text { color: var(--danger); font-weight: bold;}
+        
+        .header-stats { display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border); gap: 1rem;}
+        .stat-box { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative;}
+        .stat-box.right { text-align: right; border-left: 1px solid var(--border); padding-left: 1rem;}
+        .split-stats { font-size: 0.95rem; font-weight: bold; color: var(--accent); margin-top: 0.5rem; }
+        .title-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000;}
+        .modal-content { background: var(--card); padding: 2rem; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid var(--border); }
+        
+        .status-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; background: var(--warning); color: white; margin-left: 0.5rem; vertical-align: middle;}
+        
+        .legal-footer { position: absolute; bottom: 0; left: 0; width: 100%; background: var(--card); border-top: 1px solid var(--border); padding: 1.5rem 2rem; text-align: center; font-size: 0.75rem; color: #64748b; line-height: 1.5; }
+        .legal-footer a { color: var(--accent); text-decoration: none; }
+        .legal-footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="title-row">
+            <h2>Maintainer Panel</h2>
+        </div>
+        
+        <div id="initialSetupDiv">
+            <h3>Set Initial Merge</h3>
+            <p style="font-size:0.85rem; color:#64748b;">Establish the baseline date and account splits.</p>
+            <div class="form-group"><label>Date</label><input type="date" id="initDate"></div>
+            <div class="form-group"><label>CkPr Amount ($)</label><input type="number" id="initCkpr" value="31000"></div>
+            <div class="form-group"><label>CpRs Amount ($)</label><input type="number" id="initCprs" value="392000"></div>
+            <button class="btn" onclick="setInitialMerge()">Set Initial Merge</button>
+        </div>
+
+        <div id="addEntryDiv" style="display:none; margin-top: 1rem;">
+            <h3>Add Market Update</h3>
+            <div class="form-group"><label>Date</label><input type="date" id="updateDate"></div>
+            <div class="form-group"><label>New Total Account Value ($)</label><input type="number" id="updateTotal"></div>
+            <button class="btn" onclick="addMarketUpdate()">Calculate & Record</button>
+        </div>
+
+        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+            <h3>File Sync & Export</h3>
+            <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">The dashboard runs in stateless mode. You must load a file to view history.</p>
+            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 Load JSON (Drive)</button>
+            <button class="btn btn-outline" onclick="exportJSON()">💾 Save JSON As... (Drive)</button>
+            <button class="btn btn-success" style="margin-top: 1rem;" onclick="exportExcel()">📊 Export Beautiful Excel (.xlsx)</button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importJSON(event)">
+        </div>
+    </div>
+
+    <div class="card" style="overflow-x: auto;">
+        <div class="header-stats">
+            <div class="stat-box" style="flex: 2;">
+                <div class="title-row">
+                    <h1 style="margin:0;">Ledger Dashboard <span id="unsavedBadge" class="status-badge" style="display:none;">UNSAVED CHANGES</span></h1>
+                    <div class="header-actions">
+                        <button class="btn-utility" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
+                        <button class="btn-utility" onclick="openHelpModal()">📖 Manual</button>
+                    </div>
+                </div>
+                <div class="split-stats" id="ratioDisplay">Awaiting JSON Load...</div>
+            </div>
+            <div class="stat-box right">
+                <div style="font-size: 0.9rem;">Total Moved to Managed</div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: var(--danger);" id="totalWithdrawnDisplay">$0.00</div>
+            </div>
+            <div class="stat-box right">
+                <div style="font-size: 0.9rem;">Current Total Balance</div>
+                <div style="font-size: 1.8rem; font-weight: bold; color: var(--success);" id="totalBalanceDisplay">$0.00</div>
+            </div>
+        </div>
+
+        <table id="ledgerTable">
+            <thead>
+                <tr>
+                    <th>Serial #</th>
+                    <th>Date</th>
+                    <th>Event Type</th>
+                    <th class="num">Withdrawn</th>
+                    <th class="num">CkPr Balance<br><span class="percent-subtext">(% Split)</span></th>
+                    <th class="num">CpRs Balance<br><span class="percent-subtext">(% Split)</span></th>
+                    <th class="num">Total Balance</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <div id="helpModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem;">📖 Operating Manual</h2>
+            <div style="font-size: 0.9rem; line-height: 1.6; color: var(--text);">
+                <p>Welcome to the Ledger Dashboard. This tool strictly calculates proportional splits and overflow metrics.</p>
+                
+                <h4 style="margin: 1rem 0 0.5rem 0; color: var(--primary);">1. Initialization (Initial Merge)</h4>
+                <p style="margin-top:0;">Establish your baseline by defining the starting Date and the base values for both the <strong>CkPr</strong> and <strong>CpRs</strong> accounts. This action locks in the structural split percentages.</p>
+                
+                <h4 style="margin: 1rem 0 0.5rem 0; color: var(--primary);">2. Recording Updates</h4>
+                <p style="margin-top:0;">Use <strong>Add Market Update</strong> to log a new total valuation. The system will automatically calculate the gain/loss delta and distribute it proportionally based on the active split ratio.</p>
+
+                <h4 style="margin: 1rem 0 0.5rem 0; color: var(--primary);">3. Managing Overflow</h4>
+                <p style="margin-top:0;">If a Market Update pushes the Total Balance above the maximum designated limit, the system will prompt an <strong>Overflow Withdrawal</strong>. Capital must be withdrawn from the CpRs account to level the balance. <em>Executing a withdrawal automatically recalibrates all future split percentages.</em></p>
+
+                <h4 style="margin: 1rem 0 0.5rem 0; color: var(--primary);">4. Stateless Data Sync</h4>
+                <p style="margin-top:0;">This dashboard operates in <strong>Stateless Mode</strong>. Data is never cached or stored in the cloud. You must use <strong>Save JSON As...</strong> to download your ledger locally. Upon your next visit, use <strong>Load JSON (Drive)</strong> to securely restore your session.</p>
+            </div>
+            <button class="btn btn-outline" style="margin-top: 1.5rem;" onclick="closeHelpModal()">Close Manual</button>
+        </div>
+    </div>
+
+    <div id="overflowModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="color: var(--danger);">Balance Exceeds Limit</h3>
+            <p>Your new balance is <strong id="modalNewBalance"></strong>. This exceeds the limit by <strong id="modalExcess"></strong>.</p>
+            <p>Please log a partial withdrawal from the CpRs account to level the balance. This will establish a <strong>new target split percentage</strong> moving forward.</p>
+            
+            <div class="form-group"><label>Withdrawal Date</label><input type="date" id="modalDate"></div>
+            <div class="form-group"><label>Withdrawal Amount ($)</label><input type="number" id="modalAmount"></div>
+            
+            <button class="btn" style="background: var(--danger);" onclick="executeOverflow()">Execute Withdrawal & Recalculate</button>
+            <button class="btn btn-outline" onclick="cancelOverflow()">Cancel & Keep Excess</button>
+        </div>
+    </div>
+
+    <div id="editInitialModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Edit Initial Merge</h3>
+            <p style="font-size: 0.85rem; color: #64748b;">Warning: Updating the initial base amounts will recalculate the entire ledger history.</p>
+            <input type="hidden" id="editInitSerial">
+            <div class="form-group"><label>Date</label><input type="date" id="editInitDate"></div>
+            <div class="form-group"><label>CkPr Amount ($)</label><input type="number" id="editInitCkpr"></div>
+            <div class="form-group"><label>CpRs Amount ($)</label><input type="number" id="editInitCprs"></div>
+            
+            <button class="btn" style="background: var(--warning);" onclick="saveInitialMergeEdit()">Save Changes & Recalculate</button>
+            <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+        </div>
+    </div>
+
+    <div class="legal-footer">
+        This is a free utility tool designed to assist users in tracking and saving numerical data locally. All data remains on your local machine; no information is transmitted to or stored on external cloud servers. 
+        <strong>Use of this tool is entirely at your own risk.</strong> It is provided "as is" without warranty of any kind, express or implied. <br>
+        For feedback or inquiries, please contact <a href="mailto:babuptx@gmail.com">babuptx@gmail.com</a>.
+    </div>
+
+    <script>
+        // --- Theme Management ---
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeBtn');
+            if (body.classList.contains('dark-mode')) {
+                body.classList.remove('dark-mode');
+                btn.innerHTML = '🌙 Dark';
+                localStorage.setItem('ledger_theme', 'light');
+            } else {
+                body.classList.add('dark-mode');
+                btn.innerHTML = '☀️ Light';
+                localStorage.setItem('ledger_theme', 'dark');
+            }
+        }
+
+        // Apply saved theme on load (Safe use of local storage for UI only)
+        if (localStorage.getItem('ledger_theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('themeBtn').innerHTML = '☀️ Light';
+        }
+
+        // --- Core Application Logic ---
+        let records = [];
+        const MAX_LIMIT = 500000;
+        const TYPE_INITIAL = "Initial Merge & Account Unification";
+        let hasUnsavedChanges = false;
+
+        const formatMoney = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
+        const formatPercent = (num) => (num * 100).toFixed(2) + '%';
+        const generateSerial = () => {
+            const last = records.length > 0 ? Math.max(...records.map(r => r.serial)) : 1000;
+            return last + 1;
+        };
+        const pad = (n) => n.toString().padStart(2, '0');
+
+        function openHelpModal() { document.getElementById('helpModal').style.display = 'flex'; }
+        function closeHelpModal() { document.getElementById('helpModal').style.display = 'none'; }
+
+        // STATELESS INITIALIZATION (Only clears data, preserves UI theme)
+        function init() {
+            records = []; 
+            hasUnsavedChanges = false;
+            document.getElementById('initDate').valueAsDate = new Date();
+            document.getElementById('updateDate').valueAsDate = new Date();
+            renderUI();
+        }
+
+        function recalculateHistory() {
+            records.sort((a, b) => new Date(a.date) - new Date(b.date) || a.serial - b.serial);
+            let currentCkprRatio = 0, currentCprsRatio = 0;
+            let lastTotal = 0, lastCkpr = 0, lastCprs = 0;
+
+            for (let i = 0; i < records.length; i++) {
+                let r = records[i];
+                if (r.withdrawAmt === undefined) r.withdrawAmt = 0;
+                
+                if (r.type === TYPE_INITIAL) {
+                    currentCkprRatio = r.ckpr / r.total;
+                    currentCprsRatio = r.cprs / r.total;
+                    r.ckprPercent = currentCkprRatio; r.cprsPercent = currentCprsRatio;
+                    lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs;
+                } 
+                else if (r.type === "Market Valuation Update") {
+                    const delta = r.total - lastTotal; 
+                    r.ckpr = lastCkpr + (delta * currentCkprRatio);
+                    r.cprs = lastCprs + (delta * currentCprsRatio);
+                    r.ckprPercent = currentCkprRatio; r.cprsPercent = currentCprsRatio;
+                    lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs;
+                }
+                else if (r.type === "CpRs Partial Withdrawal Event") {
+                    r.total = lastTotal - r.withdrawAmt;
+                    r.ckpr = lastCkpr; 
+                    r.cprs = lastCprs - r.withdrawAmt;
+                    currentCkprRatio = r.ckpr / r.total; currentCprsRatio = r.cprs / r.total;
+                    r.ckprPercent = currentCkprRatio; r.cprsPercent = currentCprsRatio;
+                    lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs;
+                }
+            }
+        }
+
+        function triggerChange() {
+            hasUnsavedChanges = true;
+            document.getElementById('unsavedBadge').style.display = 'inline-block';
+            recalculateHistory();
+            renderUI();
+        }
+
+        function setInitialMerge() {
+            const date = document.getElementById('initDate').value;
+            const ckpr = parseFloat(document.getElementById('initCkpr').value) || 0;
+            const cprs = parseFloat(document.getElementById('initCprs').value) || 0;
+            if(records.some(r => r.type === TYPE_INITIAL)) return alert("Initial Merge already exists.");
+            records.push({ serial: generateSerial(), date, type: TYPE_INITIAL, ckpr, cprs, total: ckpr + cprs, withdrawAmt: 0 });
+            triggerChange();
+        }
+
+        function openEditModal(serial) {
+            const record = records.find(r => r.serial === serial);
+            if(record && record.type === TYPE_INITIAL) {
+                document.getElementById('editInitSerial').value = record.serial;
+                document.getElementById('editInitDate').value = record.date;
+                document.getElementById('editInitCkpr').value = record.ckpr;
+                document.getElementById('editInitCprs').value = record.cprs;
+                document.getElementById('editInitialModal').style.display = 'flex';
+            }
+        }
+        function closeEditModal() { document.getElementById('editInitialModal').style.display = 'none'; }
+        
+        function saveInitialMergeEdit() {
+            const serial = parseInt(document.getElementById('editInitSerial').value);
+            const recordIndex = records.findIndex(r => r.serial === serial);
+            if(recordIndex !== -1) {
+                records[recordIndex].date = document.getElementById('editInitDate').value;
+                records[recordIndex].ckpr = parseFloat(document.getElementById('editInitCkpr').value) || 0;
+                records[recordIndex].cprs = parseFloat(document.getElementById('editInitCprs').value) || 0;
+                records[recordIndex].total = records[recordIndex].ckpr + records[recordIndex].cprs;
+            }
+            closeEditModal();
+            triggerChange();
+        }
+
+        function addMarketUpdate() {
+            const date = document.getElementById('updateDate').value;
+            const newTotal = parseFloat(document.getElementById('updateTotal').value) || 0;
+            if (records.length === 0) return alert("Please set the Initial Merge first.");
+
+            records.push({ serial: generateSerial(), date, type: "Market Valuation Update", total: newTotal, withdrawAmt: 0 });
+            document.getElementById('updateTotal').value = ''; 
+
+            if (newTotal > MAX_LIMIT) {
+                recalculateHistory(); renderUI(); 
+                document.getElementById('overflowModal').style.display = 'flex';
+                document.getElementById('modalNewBalance').innerText = formatMoney(newTotal);
+                document.getElementById('modalExcess').innerText = formatMoney(newTotal - MAX_LIMIT);
+                document.getElementById('modalDate').value = date;
+                document.getElementById('modalAmount').value = (newTotal - MAX_LIMIT).toFixed(2);
+            } else {
+                triggerChange();
+            }
+        }
+
+        function executeOverflow() {
+            records.push({ 
+                serial: generateSerial(), 
+                date: document.getElementById('modalDate').value, 
+                type: "CpRs Partial Withdrawal Event", 
+                withdrawAmt: parseFloat(document.getElementById('modalAmount').value) 
+            });
+            document.getElementById('overflowModal').style.display = 'none';
+            triggerChange();
+        }
+
+        function cancelOverflow() {
+            document.getElementById('overflowModal').style.display = 'none';
+            triggerChange(); 
+        }
+
+        function deleteRecord(serial) {
+            if(confirm(`Are you sure you want to delete record #${serial}?`)) {
+                records = records.filter(r => r.serial !== serial);
+                triggerChange();
+            }
+        }
+
+        function renderUI() {
+            const hasInitial = records.some(r => r.type === TYPE_INITIAL);
+            document.getElementById('initialSetupDiv').style.display = hasInitial ? 'none' : 'block';
+            document.getElementById('addEntryDiv').style.display = hasInitial ? 'block' : 'none';
+
+            let lifetimeWithdrawn = 0;
+            records.forEach(r => { lifetimeWithdrawn += (r.withdrawAmt || 0); });
+            document.getElementById('totalWithdrawnDisplay').innerText = formatMoney(lifetimeWithdrawn);
+
+            if (records.length > 0) {
+                const latest = records[records.length - 1];
+                document.getElementById('ratioDisplay').innerHTML = `Current Active Split: <span style="color:#64748b;">CkPr: ${formatPercent(latest.ckprPercent)} | CpRs: ${formatPercent(latest.cprsPercent)}</span>`;
+                document.getElementById('totalBalanceDisplay').innerText = formatMoney(latest.total);
+            } else {
+                document.getElementById('ratioDisplay').innerText = "Awaiting JSON Load...";
+                document.getElementById('totalBalanceDisplay').innerText = "$0.00";
+            }
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            [...records].reverse().forEach(r => {
+                let actionBtns = r.type === TYPE_INITIAL 
+                    ? `<button class="btn-warning" onclick="openEditModal(${r.serial})">Edit</button>`
+                    : `<button class="btn-danger" onclick="deleteRecord(${r.serial})">Delete</button>`;
+
+                const wDisplay = r.withdrawAmt > 0 ? `<span class="withdrawn-text">${formatMoney(r.withdrawAmt)}</span>` : `<span style="color:#94a3b8;">$0.00</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>#${r.serial}</strong></td>
+                        <td>${r.date}</td>
+                        <td>${r.type}</td>
+                        <td class="num">${wDisplay}</td>
+                        <td class="num">${formatMoney(r.ckpr)}<span class="percent-subtext">${formatPercent(r.ckprPercent)}</span></td>
+                        <td class="num">${formatMoney(r.cprs)}<span class="percent-subtext">${formatPercent(r.cprsPercent)}</span></td>
+                        <td class="num" style="font-weight:bold; color:var(--success);">${formatMoney(r.total)}</td>
+                        <td>${actionBtns}</td>
+                    </tr>`;
+            });
+        }
+
+        // --- File System I/O ---
+        async function exportJSON() {
+            if(records.length === 0) return alert("No data to save.");
+            const dataStr = JSON.stringify(records, null, 2);
+            
+            const now = new Date();
+            const ts = `${now.getFullYear()}_${pad(now.getMonth()+1)}_${pad(now.getDate())}_${pad(now.getHours())}_${pad(now.getMinutes())}_${pad(now.getSeconds())}`;
+            const filename = `Family_Ledger_as_on_${ts}.json`;
+
+            if (window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: filename,
+                        types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(dataStr);
+                    await writable.close();
+                    
+                    hasUnsavedChanges = false;
+                    document.getElementById('unsavedBadge').style.display = 'none';
+                    return;
+                } catch (err) {
+                    if (err.name !== 'AbortError') console.error(err);
+                    return; 
+                }
+            }
+
+            const blob = new Blob([dataStr], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const dl = document.createElement('a');
+            dl.href = url;
+            dl.download = filename;
+            dl.click();
+            URL.revokeObjectURL(url);
+            
+            hasUnsavedChanges = false;
+            document.getElementById('unsavedBadge').style.display = 'none';
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    records = JSON.parse(e.target.result);
+                    hasUnsavedChanges = false;
+                    document.getElementById('unsavedBadge').style.display = 'none';
+                    recalculateHistory();
+                    renderUI();
+                } catch (err) { alert("Invalid JSON file."); }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; 
+        }
+
+        async function exportExcel() {
+            if (records.length === 0) return alert("No data to export.");
+            
+            const wb = new ExcelJS.Workbook();
+            const ws = wb.addWorksheet('Ledger Dashboard');
+
+            ws.columns = [
+                { header: 'Serial #', key: 'serial', width: 12 },
+                { header: 'Date', key: 'date', width: 15 },
+                { header: 'Event Type', key: 'type', width: 35 },
+                { header: 'Withdrawn', key: 'withdrawn', width: 18 },
+                { header: 'CkPr Balance', key: 'ckpr', width: 18 },
+                { header: 'CkPr Split', key: 'ckprSplit', width: 15 },
+                { header: 'CpRs Balance', key: 'cprs', width: 18 },
+                { header: 'CpRs Split', key: 'cprsSplit', width: 15 },
+                { header: 'Total Balance', key: 'total', width: 20 }
+            ];
+
+            ws.mergeCells('A1:I1');
+            const titleCell = ws.getCell('A1');
+            titleCell.value = 'Family Ledger - Financial Dashboard';
+            titleCell.font = { size: 16, bold: true, color: { argb: 'FF0F172A' } };
+            titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+            ws.getRow(1).height = 30;
+
+            let lifetimeWithdrawn = 0;
+            records.forEach(r => { lifetimeWithdrawn += (r.withdrawAmt || 0); });
+            const latest = records[records.length - 1];
+
+            ws.getCell('C2').value = 'Current Active Split:';
+            ws.getCell('C2').font = { bold: true };
+            ws.getCell('C2').alignment = { horizontal: 'right' };
+            ws.getCell('D2').value = `CkPr: ${(latest.ckprPercent * 100).toFixed(1)}%  |  CpRs: ${(latest.cprsPercent * 100).toFixed(1)}%`;
+            ws.getCell('D2').font = { bold: true, color: { argb: 'FF2563EB' } };
+
+            ws.getCell('C3').value = 'Total Moved to Managed:';
+            ws.getCell('C3').font = { bold: true };
+            ws.getCell('C3').alignment = { horizontal: 'right' };
+            ws.getCell('D3').value = lifetimeWithdrawn;
+            ws.getCell('D3').numFmt = '"$"#,##0.00';
+            ws.getCell('D3').font = { bold: true, color: { argb: 'FFEF4444' } };
+
+            ws.getCell('E3').value = 'Current Total Balance:';
+            ws.getCell('E3').font = { bold: true };
+            ws.getCell('E3').alignment = { horizontal: 'right' };
+            ws.getCell('F3').value = latest.total;
+            ws.getCell('F3').numFmt = '"$"#,##0.00';
+            ws.getCell('F3').font = { bold: true, color: { argb: 'FF10B981' } };
+
+            const headerRow = ws.getRow(5);
+            headerRow.values = ['Serial #', 'Date', 'Event Type', 'Withdrawn', 'CkPr Balance', 'CkPr Split', 'CpRs Balance', 'CpRs Split', 'Total Balance'];
+            headerRow.font = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+            let currentRow = 6;
+            [...records].reverse().forEach(r => {
+                const row = ws.getRow(currentRow);
+                row.values = [
+                    r.serial, r.date, r.type,
+                    r.withdrawAmt || 0,
+                    r.ckpr, r.ckprPercent,
+                    r.cprs, r.cprsPercent,
+                    r.total
+                ];
+
+                row.getCell(4).numFmt = '"$"#,##0.00';
+                row.getCell(5).numFmt = '"$"#,##0.00';
+                row.getCell(6).numFmt = '0.00%';
+                row.getCell(7).numFmt = '"$"#,##0.00';
+                row.getCell(8).numFmt = '0.00%';
+                row.getCell(9).numFmt = '"$"#,##0.00';
+                
+                if(row.getCell(4).value > 0) {
+                    row.getCell(4).font = { color: { argb: 'FFEF4444' }, bold: true };
+                }
+                currentRow++;
+            });
+
+            for (let r = 5; r < currentRow; r++) {
+                for (let c = 1; c <= 9; c++) {
+                    ws.getCell(r, c).border = {
+                        top: {style:'thin', color:{argb:'FFE2E8F0'}},
+                        left: {style:'thin', color:{argb:'FFE2E8F0'}},
+                        bottom: {style:'thin', color:{argb:'FFE2E8F0'}},
+                        right: {style:'thin', color:{argb:'FFE2E8F0'}}
+                    };
+                }
+            }
+
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            
+            const now = new Date();
+            const ts = `${now.getFullYear()}_${pad(now.getMonth()+1)}_${pad(now.getDate())}_${pad(now.getHours())}_${pad(now.getMinutes())}_${pad(now.getSeconds())}`;
+            
+            const url = URL.createObjectURL(blob);
+            const dl = document.createElement('a');
+            dl.href = url;
+            dl.download = `Family_Ledger_as_on_${ts}.xlsx`;
+            dl.click();
+            URL.revokeObjectURL(url);
+        }
+
+        window.addEventListener('beforeunload', function (e) {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>

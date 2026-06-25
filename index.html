@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Ledger Dashboard v2.0</title>
+    <title>Family Ledger Dashboard v2.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <style>
         /* Light Theme Variables (Default) */
@@ -60,6 +60,7 @@
         .header-actions { display: flex; gap: 0.5rem; align-items: center; }
         .btn-utility { background: transparent; color: var(--primary); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 0.5rem; transition: 0.2s;}
         .btn-utility:hover { background: var(--bg); }
+        .btn-utility:disabled { opacity: 0.5; cursor: not-allowed; }
         
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; }
         th, td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
@@ -91,7 +92,7 @@
         
         <div id="initialSetupDiv">
             <h3>Set Initial Merge</h3>
-            <p style="font-size:0.85rem; color:#64748b;">Establish the baseline date and account splits.</p>
+            <p style="font-size:0.85rem; color:#64748b;">Establish the baseline date and account splits. (Inputs always in USD)</p>
             <div class="form-group"><label>Date</label><input type="date" id="initDate"></div>
             <div class="form-group"><label>Ss Amount ($)</label><input type="number" id="initSs" value="0"></div>
             <div class="form-group"><label>CkPr Amount ($)</label><input type="number" id="initCkpr" value="31000"></div>
@@ -142,6 +143,7 @@
                 <div class="title-row">
                     <h1 style="margin:0;">Ledger Dashboard <span id="unsavedBadge" class="status-badge" style="display:none;">UNSAVED CHANGES</span></h1>
                     <div class="header-actions">
+                        <button class="btn-utility" onclick="toggleCurrency()" id="currencyBtn" disabled>🔄 Fetching rate...</button>
                         <button class="btn-utility" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
                     </div>
                 </div>
@@ -205,7 +207,54 @@
     </div>
 
     <script>
-        // --- Theme Management ---
+        // --- Theme & Currency Management ---
+        let currentCurrency = 'USD';
+        let exchangeRateINR = null;
+
+        async function fetchExchangeRate() {
+            // Triple-redundant failover cascade for maximum reliability
+            const endpoints = [
+                'https://open.er-api.com/v6/latest/USD',
+                'https://api.exchangerate-api.com/v4/latest/USD',
+                'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json'
+            ];
+
+            for (let url of endpoints) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) continue;
+                    const data = await response.json();
+                    
+                    if (data.rates && data.rates.INR) { exchangeRateINR = data.rates.INR; break; }
+                    else if (data.usd && data.usd.inr) { exchangeRateINR = data.usd.inr; break; }
+                } catch (error) { console.warn(`API failover from ${url}`); }
+            }
+
+            const btn = document.getElementById('currencyBtn');
+            if (exchangeRateINR) {
+                exchangeRateINR = parseFloat(exchangeRateINR.toFixed(2));
+                btn.innerHTML = `🔄 $1 = ₹${exchangeRateINR}`;
+                btn.disabled = false;
+            } else {
+                btn.innerHTML = `⚠️ FX Error`;
+            }
+        }
+
+        fetchExchangeRate();
+
+        function toggleCurrency() {
+            if (!exchangeRateINR) return;
+            const btn = document.getElementById('currencyBtn');
+            if (currentCurrency === 'USD') {
+                currentCurrency = 'INR';
+                btn.innerHTML = `🔄 View in USD`;
+            } else {
+                currentCurrency = 'USD';
+                btn.innerHTML = `🔄 $1 = ₹${exchangeRateINR}`;
+            }
+            renderUI();
+        }
+
         function toggleTheme() {
             const body = document.body;
             const btn = document.getElementById('themeBtn');
@@ -232,7 +281,14 @@
         const TYPE_TRANSFER = "Internal Transfer (Reallocation)";
         let hasUnsavedChanges = false;
 
-        const formatMoney = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
+        const formatMoney = (num) => {
+            if (currentCurrency === 'INR' && exchangeRateINR) {
+                const converted = num * exchangeRateINR;
+                return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(converted);
+            }
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
+        };
+        
         const formatPercent = (num) => (num * 100).toFixed(2) + '%';
         const generateSerial = () => records.length > 0 ? Math.max(...records.map(r => r.serial)) + 1 : 1000;
         const pad = (n) => n.toString().padStart(2, '0');
@@ -255,7 +311,7 @@
             for (let i = 0; i < records.length; i++) {
                 let r = records[i];
                 if (r.withdrawAmt === undefined) r.withdrawAmt = 0;
-                if (r.ss === undefined) r.ss = 0; // Legacy JSON support
+                if (r.ss === undefined) r.ss = 0;
                 
                 if (r.type === TYPE_INITIAL) {
                     currentCkprRatio = r.ckpr / r.total;
@@ -282,7 +338,7 @@
                     lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs; lastSs = r.ss;
                 }
                 else if (r.type === TYPE_TRANSFER) {
-                    r.total = lastTotal; // Overall balance remains unchanged
+                    r.total = lastTotal; 
                     
                     let deltaCkpr = (r.transferFrom === 'CkPr' ? -r.transferAmt : r.transferTo === 'CkPr' ? r.transferAmt : 0);
                     let deltaCprs = (r.transferFrom === 'CpRs' ? -r.transferAmt : r.transferTo === 'CpRs' ? r.transferAmt : 0);
@@ -431,7 +487,7 @@
                     ? `<button class="btn-warning" onclick="openEditModal(${r.serial})">Edit</button>`
                     : `<button class="btn-danger" onclick="deleteRecord(${r.serial})">Delete</button>`;
 
-                const wDisplay = r.withdrawAmt > 0 ? `<span class="withdrawn-text">${formatMoney(r.withdrawAmt)}</span>` : `<span style="color:#94a3b8;">$0.00</span>`;
+                const wDisplay = r.withdrawAmt > 0 ? `<span class="withdrawn-text">${formatMoney(r.withdrawAmt)}</span>` : `<span style="color:#94a3b8;">${currentCurrency === 'USD' ? '$0.00' : '₹0.00'}</span>`;
                 
                 let commentText = r.type;
                 if(r.type === TYPE_TRANSFER) commentText = `Reallocation: $${r.transferAmt} from ${r.transferFrom} to ${r.transferTo}`;
@@ -538,15 +594,15 @@
             ws.getCell('C3').value = 'Total Moved to Managed:';
             ws.getCell('C3').font = { bold: true };
             ws.getCell('C3').alignment = { horizontal: 'right' };
-            ws.getCell('D3').value = lifetimeWithdrawn;
-            ws.getCell('D3').numFmt = '"$"#,##0.00';
+            ws.getCell('D3').value = currentCurrency === 'INR' ? lifetimeWithdrawn * exchangeRateINR : lifetimeWithdrawn;
+            ws.getCell('D3').numFmt = currentCurrency === 'INR' ? '"₹"#,##0.00' : '"$"#,##0.00';
             ws.getCell('D3').font = { bold: true, color: { argb: 'FFEF4444' } };
 
             ws.getCell('E3').value = 'Current Total Balance:';
             ws.getCell('E3').font = { bold: true };
             ws.getCell('E3').alignment = { horizontal: 'right' };
-            ws.getCell('F3').value = latest.total;
-            ws.getCell('F3').numFmt = '"$"#,##0.00';
+            ws.getCell('F3').value = currentCurrency === 'INR' ? latest.total * exchangeRateINR : latest.total;
+            ws.getCell('F3').numFmt = currentCurrency === 'INR' ? '"₹"#,##0.00' : '"$"#,##0.00';
             ws.getCell('F3').font = { bold: true, color: { argb: 'FF10B981' } };
 
             const headerRow = ws.getRow(5);
@@ -564,21 +620,26 @@
 
                 row.values = [
                     r.serial, r.date, commentText,
-                    r.withdrawAmt || 0,
-                    r.ss || 0, r.ssPercent || 0,
-                    r.ckpr, r.ckprPercent,
-                    r.cprs, r.cprsPercent,
-                    r.total
+                    currentCurrency === 'INR' ? (r.withdrawAmt || 0) * exchangeRateINR : (r.withdrawAmt || 0),
+                    currentCurrency === 'INR' ? (r.ss || 0) * exchangeRateINR : (r.ss || 0), 
+                    r.ssPercent || 0,
+                    currentCurrency === 'INR' ? r.ckpr * exchangeRateINR : r.ckpr, 
+                    r.ckprPercent,
+                    currentCurrency === 'INR' ? r.cprs * exchangeRateINR : r.cprs, 
+                    r.cprsPercent,
+                    currentCurrency === 'INR' ? r.total * exchangeRateINR : r.total
                 ];
 
-                row.getCell(4).numFmt = '"$"#,##0.00';
-                row.getCell(5).numFmt = '"$"#,##0.00';
+                const curFmt = currentCurrency === 'INR' ? '"₹"#,##0.00' : '"$"#,##0.00';
+                
+                row.getCell(4).numFmt = curFmt;
+                row.getCell(5).numFmt = curFmt;
                 row.getCell(6).numFmt = '0.00%';
-                row.getCell(7).numFmt = '"$"#,##0.00';
+                row.getCell(7).numFmt = curFmt;
                 row.getCell(8).numFmt = '0.00%';
-                row.getCell(9).numFmt = '"$"#,##0.00';
+                row.getCell(9).numFmt = curFmt;
                 row.getCell(10).numFmt = '0.00%';
-                row.getCell(11).numFmt = '"$"#,##0.00';
+                row.getCell(11).numFmt = curFmt;
                 
                 if(row.getCell(4).value > 0) { row.getCell(4).font = { color: { argb: 'FFEF4444' }, bold: true }; }
                 currentRow++;

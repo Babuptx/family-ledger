@@ -1,0 +1,19 @@
+# Personal ledger backups and exports.  Keep these private and outside Git.
+Family_Ledger_as_on_*.json
+Family_Ledger_as_on_*.xlsx
+
+# Node tooling
+node_modules/
+npm-debug.log*
+
+# Test output
+coverage/
+
+# Local operating-system/editor files
+.DS_Store
+Thumbs.db
+
+# Never commit local credentials or machine-specific configuration.
+.env
+.env.*
+!.env.example

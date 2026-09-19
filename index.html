@@ -1,673 +1,118 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Ledger Dashboard v2.1</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-    <style>
-        /* Light Theme Variables (Default) */
-        :root { 
-             --bg: #f8fafc; 
-             --card: #ffffff; 
-             --text: #334155; 
-             --border: #e2e8f0; 
-             --primary: #0f172a; 
-             --accent: #2563eb; 
-             --danger: #ef4444; 
-             --success: #10b981; 
-             --warning: #f59e0b;
-             --purple: #8b5cf6;
-             --input-bg: #ffffff;
-        }
-
-        /* Dark Theme Variables */
-        body.dark-mode {
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text: #f1f5f9;
-            --border: #334155;
-            --primary: #f8fafc;
-            --accent: #3b82f6;
-            --input-bg: #0f172a;
-        }
-
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background-color 0.3s, color 0.3s; }
-        body { background: var(--bg); color: var(--text); padding: 2rem; padding-bottom: 6rem; margin: 0; display: grid; grid-template-columns: 350px 1fr; gap: 2rem; align-items: start; min-height: 100vh; position: relative;}
-        
-        @media (max-width: 1024px) {
-            body { grid-template-columns: 1fr; padding-bottom: 7rem; }
-            .header-stats { flex-direction: column; text-align: left; gap: 1rem; }
-            .stat-box.right { text-align: left; border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 1rem;}
-        }
-
-        .card { background: var(--card); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        h1, h2, h3 { color: var(--primary); margin-top: 0; }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; font-size: 0.9rem; font-weight: bold; margin-bottom: 0.3rem; }
-        input, select { width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px; font-size: 1rem; background: var(--input-bg); color: var(--text); color-scheme: light dark;}
-        
-        .btn { width: 100%; padding: 0.8rem; background: var(--primary); color: var(--bg); border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 0.5rem; transition: 0.2s; }
-        .btn:hover { opacity: 0.9; }
-        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--border); }
-        .btn-outline:hover { background: var(--bg); }
-        .btn-success { background: var(--success); color: white; border: none; }
-        .btn-success:hover { opacity: 0.9; }
-        .btn-danger { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;}
-        .btn-warning { background: var(--warning); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;}
-        
-        /* Top right utility buttons */
-        .header-actions { display: flex; gap: 0.5rem; align-items: center; }
-        .btn-utility { background: transparent; color: var(--primary); border: 1px solid var(--border); border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 0.5rem; transition: 0.2s;}
-        .btn-utility:hover { background: var(--bg); }
-        .btn-utility:disabled { opacity: 0.5; cursor: not-allowed; }
-        
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; }
-        th, td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: var(--bg); position: sticky; top: 0; color: var(--primary); }
-        .num { text-align: right; font-family: monospace; font-size: 0.95rem;}
-        .percent-subtext { font-size: 0.75rem; color: #64748b; display: block; }
-        .withdrawn-text { color: var(--danger); font-weight: bold;}
-        
-        .header-stats { display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border); gap: 1rem;}
-        .stat-box { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative;}
-        .stat-box.right { text-align: right; border-left: 1px solid var(--border); padding-left: 1rem;}
-        .split-stats { font-size: 0.90rem; font-weight: bold; color: var(--accent); margin-top: 0.5rem; }
-        .title-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000;}
-        .modal-content { background: var(--card); padding: 2rem; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid var(--border); }
-        
-        .status-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; background: var(--warning); color: white; margin-left: 0.5rem; vertical-align: middle;}
-        
-        .legal-footer { position: absolute; bottom: 0; left: 0; width: 100%; background: var(--card); border-top: 1px solid var(--border); padding: 1.5rem 2rem; text-align: center; font-size: 0.75rem; color: #64748b; line-height: 1.5; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A local-first family allocation ledger. Ledger data stays in files you choose.">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://open.er-api.com; style-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <title>Family Ledger</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./ledger-core.js" defer></script>
+  <script src="./app.js" defer></script>
 </head>
 <body>
-
-    <div class="card">
-        <div class="title-row">
-            <h2>Maintainer Panel</h2>
+  <aside class="card sidebar" aria-label="Ledger controls">
+    <div class="title-row sidebar-title-row"><h2 id="liveLedgerTitle" title="Local browser time">🐼 Family Ledger: --</h2><span class="small">v3.1</span></div>
+    <p class="small">A data-agnostic, local-first allocation ledger. Amounts are recorded in USD and rounded to whole cents.</p>
+    <section id="initialSetupSection" aria-labelledby="initialHeading">
+      <h3 id="initialHeading">Start a new ledger</h3>
+      <p class="small">Set a baseline and its starting bucket balances. Add another bucket now or later.</p>
+      <form id="initialForm" novalidate>
+        <div class="form-group"><label for="initialDate">Baseline date</label><input id="initialDate" name="initialDate" type="date" required></div>
+        <div id="initialAccounts" aria-live="polite"></div>
+        <button id="addInitialAccountButton" class="btn btn-outline" type="button">+ Add another bucket</button>
+        <button class="btn" type="submit">Start ledger</button>
+      </form>
+      <div class="initial-load">
+        <p class="small">Already have a saved ledger?</p>
+        <button id="initialLoadJsonButton" class="btn btn-outline" type="button">Load JSON backup</button>
+      </div>
+    </section>
+    <section id="entrySection" hidden aria-label="Ledger entries">
+      <h3>1. Record market total</h3>
+      <form id="marketForm" novalidate>
+        <div class="form-group"><label for="marketDate">Valuation date</label><input id="marketDate" type="date" required></div>
+        <div class="form-group"><label for="marketTotal">New total account value (USD)</label><input id="marketTotal" type="number" min="0.01" step="0.01" inputmode="decimal" required></div>
+        <button class="btn" type="submit">Calculate and record</button>
+      </form>
+      <div class="section-divider">
+        <h3>2. Reallocate between buckets</h3><p class="small">Transfers preserve the total and establish the next allocation split.</p>
+        <form id="transferForm" novalidate>
+          <div class="form-group"><label for="transferDate">Transfer date</label><input id="transferDate" type="date" required></div>
+          <div class="form-group"><label for="transferFrom">From bucket</label><select id="transferFrom" required></select></div>
+          <div class="form-group"><label for="transferTo">To bucket</label><select id="transferTo" required></select></div>
+          <div class="form-group"><label for="transferAmount">Amount (USD)</label><input id="transferAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div>
+          <button class="btn btn-outline" type="submit">Record transfer</button>
+        </form>
+      </div>
+      <div class="section-divider">
+        <h3>3. Add new funds</h3><p class="small">Record fresh money added to any bucket. The total and split percentages update automatically.</p>
+        <form id="depositForm" novalidate>
+          <div class="form-group"><label for="depositDate">Date received</label><input id="depositDate" type="date" required></div>
+          <div class="form-group"><label for="depositAccount">Add to bucket</label><select id="depositAccount" required></select></div>
+          <div class="form-group"><label for="depositAmount">New funds (USD)</label><input id="depositAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div>
+          <button class="btn btn-success" type="submit">Add new funds</button>
+        </form>
+      </div>
+      <div class="section-divider">
+        <h3>4. Add another bucket</h3><p class="small">A new bucket begins at $0.00. Fund it later with a transfer or new funds.</p>
+        <form id="addBucketForm" novalidate>
+          <div class="form-group"><label for="bucketLabel">Bucket name</label><input id="bucketLabel" type="text" maxlength="40" placeholder="Example: SANp" required></div>
+          <button class="btn btn-outline" type="submit">Add bucket</button>
+        </form>
+      </div>
+      <div class="section-divider">
+        <h3>File sync and export</h3><p class="small">Load and save through your browser. Select a Google Drive, OneDrive, or local folder if you choose; this app does not connect to any cloud account.</p>
+        <button id="loadJsonButton" class="btn btn-outline" type="button">📂 Load JSON (Drive)</button>
+        <button id="saveJsonButton" class="btn btn-outline" type="button">💾 Save JSON As... (Drive)</button>
+        <button id="exportExcelButton" class="btn btn-success" type="button">📊 Export Beautiful Excel (.xlsx)</button>
+        <button id="newLedgerButton" class="btn btn-outline" type="button">↗ Start another new ledger</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+      </div>
+    </section>
+  </aside>
+  <main class="card dashboard">
+    <div class="dashboard-inner">
+      <header class="header-stats">
+        <div class="stat-box">
+          <div class="title-row"><h1>Ledger dashboard <span id="unsavedBadge" class="status-badge" hidden>UNSAVED CHANGES</span></h1><div class="header-actions"><button id="currencyButton" class="icon-button" type="button" title="Switch between USD and INR display">View INR</button><button id="refreshRateButton" class="icon-button rate-button" type="button" title="Refresh the USD/INR rate">↻ $1 = ₹--</button><button id="themeButton" class="icon-button icon-only theme-button" type="button" aria-label="Switch color theme" title="Switch color theme">☀️</button></div></div>
+          <div id="ratioDisplay" class="split-stats">Start a new ledger or load a JSON backup.</div>
+          <div id="statusNotice" class="notice" role="status">Ledger records remain in this browser until you save a file.</div>
         </div>
-        
-        <div id="initialSetupDiv">
-            <h3>Set Initial Merge</h3>
-            <p style="font-size:0.85rem; color:#64748b;">Establish the baseline date and account splits. (Inputs always in USD)</p>
-            <div class="form-group"><label>Date</label><input type="date" id="initDate"></div>
-            <div class="form-group"><label>Ss Amount ($)</label><input type="number" id="initSs" value="0"></div>
-            <div class="form-group"><label>CkPr Amount ($)</label><input type="number" id="initCkpr" value="31000"></div>
-            <div class="form-group"><label>CpRs Amount ($)</label><input type="number" id="initCprs" value="392000"></div>
-            <button class="btn" onclick="setInitialMerge()">Set Initial Merge</button>
-        </div>
-
-        <div id="addEntryDiv" style="display:none; margin-top: 1rem;">
-            <h3>1. Add Market Update</h3>
-            <div class="form-group"><label>Date</label><input type="date" id="updateDate"></div>
-            <div class="form-group"><label>New Total Account Value ($)</label><input type="number" id="updateTotal"></div>
-            <button class="btn" onclick="addMarketUpdate()">Calculate & Record</button>
-
-            <h3 style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1rem;">2. Internal Transfer (Reallocation)</h3>
-            <p style="font-size:0.8rem; color:#64748b;">Move funds between buckets without changing the total. Automatically updates split ratios.</p>
-            <div class="form-group"><label>Date</label><input type="date" id="transferDate"></div>
-            <div class="form-group"><label>From Account</label>
-                <select id="transferFrom">
-                    <option value="Ss">Ss</option>
-                    <option value="CkPr">CkPr</option>
-                    <option value="CpRs">CpRs</option>
-                </select>
-            </div>
-            <div class="form-group"><label>To Account</label>
-                <select id="transferTo">
-                    <option value="Ss">Ss</option>
-                    <option value="CkPr">CkPr</option>
-                    <option value="CpRs">CpRs</option>
-                </select>
-            </div>
-            <div class="form-group"><label>Amount ($)</label><input type="number" id="transferAmount"></div>
-            <button class="btn btn-outline" onclick="addInternalTransfer()">Execute Transfer</button>
-        </div>
-
-        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-            <h3>File Sync & Export</h3>
-            <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">The dashboard runs in stateless mode. Load JSON first.</p>
-            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 Load JSON (Drive)</button>
-            <button class="btn btn-outline" onclick="exportJSON()">💾 Save JSON As... (Drive)</button>
-            <button class="btn btn-success" style="margin-top: 1rem;" onclick="exportExcel()">📊 Export Beautiful Excel (.xlsx)</button>
-            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importJSON(event)">
-        </div>
+        <div class="stat-box right"><span class="stat-label">Total withdrawn</span><strong id="totalWithdrawnDisplay" class="stat-value stat-withdrawn">$0.00</strong></div>
+        <div class="stat-box right"><span class="stat-label">Current total balance</span><strong id="totalBalanceDisplay" class="stat-value stat-balance">$0.00</strong></div>
+      </header>
+      <table aria-describedby="ratioDisplay"><thead id="ledgerHead"></thead><tbody id="tableBody"></tbody></table>
     </div>
-
-    <div class="card" style="overflow-x: auto;">
-        <div class="header-stats">
-            <div class="stat-box" style="flex: 2;">
-                <div class="title-row">
-                    <h1 style="margin:0;">Ledger Dashboard <span id="unsavedBadge" class="status-badge" style="display:none;">UNSAVED CHANGES</span></h1>
-                    <div class="header-actions">
-                        <button class="btn-utility" onclick="toggleCurrency()" id="currencyBtn" disabled>🔄 Fetching rate...</button>
-                        <button class="btn-utility" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
-                    </div>
-                </div>
-                <div class="split-stats" id="ratioDisplay">Awaiting JSON Load...</div>
-            </div>
-            <div class="stat-box right">
-                <div style="font-size: 0.9rem;">Total Moved to Managed</div>
-                <div style="font-size: 1.5rem; font-weight: bold; color: var(--danger);" id="totalWithdrawnDisplay">$0.00</div>
-            </div>
-            <div class="stat-box right">
-                <div style="font-size: 0.9rem;">Current Total Balance</div>
-                <div style="font-size: 1.8rem; font-weight: bold; color: var(--success);" id="totalBalanceDisplay">$0.00</div>
-            </div>
-        </div>
-
-        <table id="ledgerTable">
-            <thead>
-                <tr>
-                    <th>Serial #</th>
-                    <th>Date</th>
-                    <th>Event Type</th>
-                    <th class="num">Withdrawn</th>
-                    <th class="num" style="color: var(--purple);">👩 Ss<br><span class="percent-subtext">(% Split)</span></th>
-                    <th class="num">👦👧 CkPr<br><span class="percent-subtext">(% Split)</span></th>
-                    <th class="num">👨👩 CpRs<br><span class="percent-subtext">(% Split)</span></th>
-                    <th class="num">Total Balance</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-    </div>
-
-    <div id="overflowModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 style="color: var(--danger);">Balance Exceeds Limit</h3>
-            <p>Your new balance is <strong id="modalNewBalance"></strong>. This exceeds the limit by <strong id="modalExcess"></strong>.</p>
-            <p>Please log a partial withdrawal from the CpRs account to level the balance. This will establish a <strong>new target split percentage</strong>.</p>
-            
-            <div class="form-group"><label>Withdrawal Date</label><input type="date" id="modalDate"></div>
-            <div class="form-group"><label>Withdrawal Amount ($)</label><input type="number" id="modalAmount"></div>
-            
-            <button class="btn" style="background: var(--danger);" onclick="executeOverflow()">Execute Withdrawal & Recalculate</button>
-            <button class="btn btn-outline" onclick="cancelOverflow()">Cancel & Keep Excess</button>
-        </div>
-    </div>
-
-    <div id="editInitialModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Edit Initial Merge</h3>
-            <p style="font-size: 0.85rem; color: #64748b;">Warning: Updating the initial base amounts recalculates the entire ledger history.</p>
-            <input type="hidden" id="editInitSerial">
-            <div class="form-group"><label>Date</label><input type="date" id="editInitDate"></div>
-            <div class="form-group"><label>Ss Amount ($)</label><input type="number" id="editInitSs"></div>
-            <div class="form-group"><label>CkPr Amount ($)</label><input type="number" id="editInitCkpr"></div>
-            <div class="form-group"><label>CpRs Amount ($)</label><input type="number" id="editInitCprs"></div>
-            
-            <button class="btn" style="background: var(--warning);" onclick="saveInitialMergeEdit()">Save Changes & Recalculate</button>
-            <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
-        </div>
-    </div>
-
-    <script>
-        // --- Theme & Currency Management ---
-        let currentCurrency = 'USD';
-        let exchangeRateINR = null;
-
-        async function fetchExchangeRate() {
-            // Triple-redundant failover cascade for maximum reliability
-            const endpoints = [
-                'https://open.er-api.com/v6/latest/USD',
-                'https://api.exchangerate-api.com/v4/latest/USD',
-                'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json'
-            ];
-
-            for (let url of endpoints) {
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) continue;
-                    const data = await response.json();
-                    
-                    if (data.rates && data.rates.INR) { exchangeRateINR = data.rates.INR; break; }
-                    else if (data.usd && data.usd.inr) { exchangeRateINR = data.usd.inr; break; }
-                } catch (error) { console.warn(`API failover from ${url}`); }
-            }
-
-            const btn = document.getElementById('currencyBtn');
-            if (exchangeRateINR) {
-                exchangeRateINR = parseFloat(exchangeRateINR.toFixed(2));
-                btn.innerHTML = `🔄 $1 = ₹${exchangeRateINR}`;
-                btn.disabled = false;
-            } else {
-                btn.innerHTML = `⚠️ FX Error`;
-            }
-        }
-
-        fetchExchangeRate();
-
-        function toggleCurrency() {
-            if (!exchangeRateINR) return;
-            const btn = document.getElementById('currencyBtn');
-            if (currentCurrency === 'USD') {
-                currentCurrency = 'INR';
-                btn.innerHTML = `🔄 View in USD`;
-            } else {
-                currentCurrency = 'USD';
-                btn.innerHTML = `🔄 $1 = ₹${exchangeRateINR}`;
-            }
-            renderUI();
-        }
-
-        function toggleTheme() {
-            const body = document.body;
-            const btn = document.getElementById('themeBtn');
-            if (body.classList.contains('dark-mode')) {
-                body.classList.remove('dark-mode');
-                btn.innerHTML = '🌙 Dark';
-                localStorage.setItem('ledger_theme', 'light');
-            } else {
-                body.classList.add('dark-mode');
-                btn.innerHTML = '☀️ Light';
-                localStorage.setItem('ledger_theme', 'dark');
-            }
-        }
-
-        if (localStorage.getItem('ledger_theme') === 'dark') {
-            document.body.classList.add('dark-mode');
-            document.getElementById('themeBtn').innerHTML = '☀️ Light';
-        }
-
-        // --- Core Application Logic ---
-        let records = [];
-        const MAX_LIMIT = 500000;
-        const TYPE_INITIAL = "Initial Merge & Account Unification";
-        const TYPE_TRANSFER = "Internal Transfer (Reallocation)";
-        let hasUnsavedChanges = false;
-
-        const formatMoney = (num) => {
-            if (currentCurrency === 'INR' && exchangeRateINR) {
-                const converted = num * exchangeRateINR;
-                return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(converted);
-            }
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
-        };
-        
-        const formatPercent = (num) => (num * 100).toFixed(2) + '%';
-        const generateSerial = () => records.length > 0 ? Math.max(...records.map(r => r.serial)) + 1 : 1000;
-        const pad = (n) => n.toString().padStart(2, '0');
-
-        function init() {
-            records = []; 
-            hasUnsavedChanges = false;
-            document.getElementById('initDate').valueAsDate = new Date();
-            document.getElementById('updateDate').valueAsDate = new Date();
-            document.getElementById('transferDate').valueAsDate = new Date();
-            renderUI();
-        }
-
-        function recalculateHistory() {
-            records.sort((a, b) => new Date(a.date) - new Date(b.date) || a.serial - b.serial);
-            
-            let currentCkprRatio = 0, currentCprsRatio = 0, currentSsRatio = 0;
-            let lastTotal = 0, lastCkpr = 0, lastCprs = 0, lastSs = 0;
-
-            for (let i = 0; i < records.length; i++) {
-                let r = records[i];
-                if (r.withdrawAmt === undefined) r.withdrawAmt = 0;
-                if (r.ss === undefined) r.ss = 0;
-                
-                if (r.type === TYPE_INITIAL) {
-                    currentCkprRatio = r.ckpr / r.total;
-                    currentCprsRatio = r.cprs / r.total;
-                    currentSsRatio = r.ss / r.total;
-                    r.ckprPercent = currentCkprRatio; r.cprsPercent = currentCprsRatio; r.ssPercent = currentSsRatio;
-                    lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs; lastSs = r.ss;
-                } 
-                else if (r.type === "Market Valuation Update") {
-                    const delta = r.total - lastTotal; 
-                    r.ckpr = lastCkpr + (delta * currentCkprRatio);
-                    r.cprs = lastCprs + (delta * currentCprsRatio);
-                    r.ss = lastSs + (delta * currentSsRatio);
-                    r.ckprPercent = currentCkprRatio; r.cprsPercent = currentCprsRatio; r.ssPercent = currentSsRatio;
-                    lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs; lastSs = r.ss;
-                }
-                else if (r.type === "CpRs Partial Withdrawal Event") {
-                    r.total = lastTotal - r.withdrawAmt;
-                    r.ckpr = lastCkpr; 
-                    r.cprs = lastCprs - r.withdrawAmt;
-                    r.ss = lastSs;
-                    currentCkprRatio = r.ckpr / r.total; currentCprsRatio = r.cprs / r.total; currentSsRatio = r.ss / r.total;
-                    r.ckprPercent = currentCkprRatio; r.cprsPercent = currentCprsRatio; r.ssPercent = currentSsRatio;
-                    lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs; lastSs = r.ss;
-                }
-                else if (r.type === TYPE_TRANSFER) {
-                    r.total = lastTotal; 
-                    
-                    let deltaCkpr = (r.transferFrom === 'CkPr' ? -r.transferAmt : r.transferTo === 'CkPr' ? r.transferAmt : 0);
-                    let deltaCprs = (r.transferFrom === 'CpRs' ? -r.transferAmt : r.transferTo === 'CpRs' ? r.transferAmt : 0);
-                    let deltaSs  = (r.transferFrom === 'Ss'  ? -r.transferAmt : r.transferTo === 'Ss'  ? r.transferAmt : 0);
-                    
-                    r.ckpr = lastCkpr + deltaCkpr;
-                    r.cprs = lastCprs + deltaCprs;
-                    r.ss = lastSs + deltaSs;
-                    
-                    currentCkprRatio = r.ckpr / r.total; currentCprsRatio = r.cprs / r.total; currentSsRatio = r.ss / r.total;
-                    r.ckprPercent = currentCkprRatio; r.cprsPercent = currentCprsRatio; r.ssPercent = currentSsRatio;
-                    lastTotal = r.total; lastCkpr = r.ckpr; lastCprs = r.cprs; lastSs = r.ss;
-                }
-            }
-        }
-
-        function triggerChange() {
-            hasUnsavedChanges = true;
-            document.getElementById('unsavedBadge').style.display = 'inline-block';
-            recalculateHistory();
-            renderUI();
-        }
-
-        function setInitialMerge() {
-            const date = document.getElementById('initDate').value;
-            const ckpr = parseFloat(document.getElementById('initCkpr').value) || 0;
-            const cprs = parseFloat(document.getElementById('initCprs').value) || 0;
-            const ss = parseFloat(document.getElementById('initSs').value) || 0;
-            if(records.some(r => r.type === TYPE_INITIAL)) return alert("Initial Merge already exists.");
-            records.push({ serial: generateSerial(), date, type: TYPE_INITIAL, ckpr, cprs, ss, total: ckpr + cprs + ss, withdrawAmt: 0 });
-            triggerChange();
-        }
-
-        function addInternalTransfer() {
-            const date = document.getElementById('transferDate').value;
-            const fromAcc = document.getElementById('transferFrom').value;
-            const toAcc = document.getElementById('transferTo').value;
-            const amt = parseFloat(document.getElementById('transferAmount').value) || 0;
-            
-            if(fromAcc === toAcc) return alert("Cannot transfer to the same account.");
-            if(amt <= 0) return alert("Transfer amount must be positive.");
-            if (records.length === 0) return alert("Please set the Initial Merge first.");
-
-            records.push({
-                serial: generateSerial(),
-                date: date,
-                type: TYPE_TRANSFER,
-                transferFrom: fromAcc,
-                transferTo: toAcc,
-                transferAmt: amt,
-                withdrawAmt: 0
-            });
-            document.getElementById('transferAmount').value = '';
-            triggerChange();
-        }
-
-        function openEditModal(serial) {
-            const record = records.find(r => r.serial === serial);
-            if(record && record.type === TYPE_INITIAL) {
-                document.getElementById('editInitSerial').value = record.serial;
-                document.getElementById('editInitDate').value = record.date;
-                document.getElementById('editInitCkpr').value = record.ckpr;
-                document.getElementById('editInitCprs').value = record.cprs;
-                document.getElementById('editInitSs').value = record.ss || 0;
-                document.getElementById('editInitialModal').style.display = 'flex';
-            }
-        }
-        function closeEditModal() { document.getElementById('editInitialModal').style.display = 'none'; }
-        
-        function saveInitialMergeEdit() {
-            const serial = parseInt(document.getElementById('editInitSerial').value);
-            const recordIndex = records.findIndex(r => r.serial === serial);
-            if(recordIndex !== -1) {
-                records[recordIndex].date = document.getElementById('editInitDate').value;
-                records[recordIndex].ckpr = parseFloat(document.getElementById('editInitCkpr').value) || 0;
-                records[recordIndex].cprs = parseFloat(document.getElementById('editInitCprs').value) || 0;
-                records[recordIndex].ss = parseFloat(document.getElementById('editInitSs').value) || 0;
-                records[recordIndex].total = records[recordIndex].ckpr + records[recordIndex].cprs + records[recordIndex].ss;
-            }
-            closeEditModal();
-            triggerChange();
-        }
-
-        function addMarketUpdate() {
-            const date = document.getElementById('updateDate').value;
-            const newTotal = parseFloat(document.getElementById('updateTotal').value) || 0;
-            if (records.length === 0) return alert("Please set the Initial Merge first.");
-
-            records.push({ serial: generateSerial(), date, type: "Market Valuation Update", total: newTotal, withdrawAmt: 0 });
-            document.getElementById('updateTotal').value = ''; 
-
-            if (newTotal > MAX_LIMIT) {
-                recalculateHistory(); renderUI(); 
-                document.getElementById('overflowModal').style.display = 'flex';
-                document.getElementById('modalNewBalance').innerText = formatMoney(newTotal);
-                document.getElementById('modalExcess').innerText = formatMoney(newTotal - MAX_LIMIT);
-                document.getElementById('modalDate').value = date;
-                document.getElementById('modalAmount').value = (newTotal - MAX_LIMIT).toFixed(2);
-            } else {
-                triggerChange();
-            }
-        }
-
-        function executeOverflow() {
-            records.push({ 
-                serial: generateSerial(), 
-                date: document.getElementById('modalDate').value, 
-                type: "CpRs Partial Withdrawal Event", 
-                withdrawAmt: parseFloat(document.getElementById('modalAmount').value) 
-            });
-            document.getElementById('overflowModal').style.display = 'none';
-            triggerChange();
-        }
-        function cancelOverflow() { document.getElementById('overflowModal').style.display = 'none'; triggerChange(); }
-
-        function deleteRecord(serial) {
-            if(confirm(`Are you sure you want to delete record #${serial}?`)) {
-                records = records.filter(r => r.serial !== serial);
-                triggerChange();
-            }
-        }
-
-        function renderUI() {
-            const hasInitial = records.some(r => r.type === TYPE_INITIAL);
-            document.getElementById('initialSetupDiv').style.display = hasInitial ? 'none' : 'block';
-            document.getElementById('addEntryDiv').style.display = hasInitial ? 'block' : 'none';
-
-            let lifetimeWithdrawn = 0;
-            records.forEach(r => { lifetimeWithdrawn += (r.withdrawAmt || 0); });
-            document.getElementById('totalWithdrawnDisplay').innerText = formatMoney(lifetimeWithdrawn);
-
-            if (records.length > 0) {
-                const latest = records[records.length - 1];
-                document.getElementById('ratioDisplay').innerHTML = `Current Active Split: <span style="color:#64748b;">Ss: ${formatPercent(latest.ssPercent || 0)} | CkPr: ${formatPercent(latest.ckprPercent || 0)} | CpRs: ${formatPercent(latest.cprsPercent || 0)}</span>`;
-                document.getElementById('totalBalanceDisplay').innerText = formatMoney(latest.total);
-            } else {
-                document.getElementById('ratioDisplay').innerText = "Awaiting JSON Load...";
-                document.getElementById('totalBalanceDisplay').innerText = "$0.00";
-            }
-
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
-            
-            [...records].reverse().forEach(r => {
-                let actionBtns = r.type === TYPE_INITIAL 
-                    ? `<button class="btn-warning" onclick="openEditModal(${r.serial})">Edit</button>`
-                    : `<button class="btn-danger" onclick="deleteRecord(${r.serial})">Delete</button>`;
-
-                const wDisplay = r.withdrawAmt > 0 ? `<span class="withdrawn-text">${formatMoney(r.withdrawAmt)}</span>` : `<span style="color:#94a3b8;">${currentCurrency === 'USD' ? '$0.00' : '₹0.00'}</span>`;
-                
-                let commentText = r.type;
-                if(r.type === TYPE_TRANSFER) commentText = `Reallocation: $${r.transferAmt} from ${r.transferFrom} to ${r.transferTo}`;
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>#${r.serial}</strong></td>
-                        <td>${r.date}</td>
-                        <td>${commentText}</td>
-                        <td class="num">${wDisplay}</td>
-                        <td class="num" style="color: var(--purple);">${formatMoney(r.ss || 0)}<span class="percent-subtext">${formatPercent(r.ssPercent || 0)}</span></td>
-                        <td class="num">${formatMoney(r.ckpr)}<span class="percent-subtext">${formatPercent(r.ckprPercent || 0)}</span></td>
-                        <td class="num">${formatMoney(r.cprs)}<span class="percent-subtext">${formatPercent(r.cprsPercent || 0)}</span></td>
-                        <td class="num" style="font-weight:bold; color:var(--success);">${formatMoney(r.total)}</td>
-                        <td>${actionBtns}</td>
-                    </tr>`;
-            });
-        }
-
-        // --- File System I/O ---
-        async function exportJSON() {
-            if(records.length === 0) return alert("No data to save.");
-            const dataStr = JSON.stringify(records, null, 2);
-            
-            const now = new Date();
-            const ts = `${now.getFullYear()}_${pad(now.getMonth()+1)}_${pad(now.getDate())}_${pad(now.getHours())}_${pad(now.getMinutes())}_${pad(now.getSeconds())}`;
-            const filename = `Family_Ledger_as_on_${ts}.json`;
-
-            if (window.showSaveFilePicker) {
-                try {
-                    const handle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }] });
-                    const writable = await handle.createWritable();
-                    await writable.write(dataStr);
-                    await writable.close();
-                    hasUnsavedChanges = false;
-                    document.getElementById('unsavedBadge').style.display = 'none';
-                    return;
-                } catch (err) { if (err.name !== 'AbortError') console.error(err); return; }
-            }
-
-            const blob = new Blob([dataStr], {type: "application/json"});
-            const url = URL.createObjectURL(blob);
-            const dl = document.createElement('a');
-            dl.href = url; dl.download = filename; dl.click();
-            URL.revokeObjectURL(url);
-            hasUnsavedChanges = false;
-            document.getElementById('unsavedBadge').style.display = 'none';
-        }
-
-        function importJSON(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => {
-                try {
-                    records = JSON.parse(e.target.result);
-                    hasUnsavedChanges = false;
-                    document.getElementById('unsavedBadge').style.display = 'none';
-                    recalculateHistory();
-                    renderUI();
-                } catch (err) { alert("Invalid JSON file."); }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; 
-        }
-
-        async function exportExcel() {
-            if (records.length === 0) return alert("No data to export.");
-            
-            const wb = new ExcelJS.Workbook();
-            const ws = wb.addWorksheet('Ledger Dashboard');
-
-            ws.columns = [
-                { header: 'Serial #', key: 'serial', width: 12 },
-                { header: 'Date', key: 'date', width: 15 },
-                { header: 'Event Type', key: 'type', width: 35 },
-                { header: 'Withdrawn', key: 'withdrawn', width: 18 },
-                { header: '👩 Ss', key: 'ss', width: 18 },
-                { header: 'Ss Split', key: 'ssSplit', width: 15 },
-                { header: '👦👧 CkPr', key: 'ckpr', width: 18 },
-                { header: 'CkPr Split', key: 'ckprSplit', width: 15 },
-                { header: '👨👩 CpRs', key: 'cprs', width: 18 },
-                { header: 'CpRs Split', key: 'cprsSplit', width: 15 },
-                { header: 'Total Balance', key: 'total', width: 20 }
-            ];
-
-            ws.mergeCells('A1:K1');
-            const titleCell = ws.getCell('A1');
-            titleCell.value = 'Family Ledger - Financial Dashboard';
-            titleCell.font = { size: 16, bold: true, color: { argb: 'FF0F172A' } };
-            titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-            ws.getRow(1).height = 30;
-
-            let lifetimeWithdrawn = 0;
-            records.forEach(r => { lifetimeWithdrawn += (r.withdrawAmt || 0); });
-            const latest = records[records.length - 1];
-
-            ws.getCell('C2').value = 'Current Active Split:';
-            ws.getCell('C2').font = { bold: true };
-            ws.getCell('C2').alignment = { horizontal: 'right' };
-            ws.getCell('D2').value = `Ss: ${(latest.ssPercent * 100).toFixed(1)}% | CkPr: ${(latest.ckprPercent * 100).toFixed(1)}% | CpRs: ${(latest.cprsPercent * 100).toFixed(1)}%`;
-            ws.getCell('D2').font = { bold: true, color: { argb: 'FF2563EB' } };
-
-            ws.getCell('C3').value = 'Total Moved to Managed:';
-            ws.getCell('C3').font = { bold: true };
-            ws.getCell('C3').alignment = { horizontal: 'right' };
-            ws.getCell('D3').value = currentCurrency === 'INR' ? lifetimeWithdrawn * exchangeRateINR : lifetimeWithdrawn;
-            ws.getCell('D3').numFmt = currentCurrency === 'INR' ? '"₹"#,##0.00' : '"$"#,##0.00';
-            ws.getCell('D3').font = { bold: true, color: { argb: 'FFEF4444' } };
-
-            ws.getCell('E3').value = 'Current Total Balance:';
-            ws.getCell('E3').font = { bold: true };
-            ws.getCell('E3').alignment = { horizontal: 'right' };
-            ws.getCell('F3').value = currentCurrency === 'INR' ? latest.total * exchangeRateINR : latest.total;
-            ws.getCell('F3').numFmt = currentCurrency === 'INR' ? '"₹"#,##0.00' : '"$"#,##0.00';
-            ws.getCell('F3').font = { bold: true, color: { argb: 'FF10B981' } };
-
-            const headerRow = ws.getRow(5);
-            headerRow.values = ['Serial #', 'Date', 'Event Type', 'Withdrawn', '👩 Ss', 'Ss Split', '👦👧 CkPr', 'CkPr Split', '👨👩 CpRs', 'CpRs Split', 'Total Balance'];
-            headerRow.font = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
-            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-            let currentRow = 6;
-            [...records].reverse().forEach(r => {
-                const row = ws.getRow(currentRow);
-                
-                let commentText = r.type;
-                if(r.type === TYPE_TRANSFER) commentText = `Reallocation: $${r.transferAmt} from ${r.transferFrom} to ${r.transferTo}`;
-
-                row.values = [
-                    r.serial, r.date, commentText,
-                    currentCurrency === 'INR' ? (r.withdrawAmt || 0) * exchangeRateINR : (r.withdrawAmt || 0),
-                    currentCurrency === 'INR' ? (r.ss || 0) * exchangeRateINR : (r.ss || 0), 
-                    r.ssPercent || 0,
-                    currentCurrency === 'INR' ? r.ckpr * exchangeRateINR : r.ckpr, 
-                    r.ckprPercent,
-                    currentCurrency === 'INR' ? r.cprs * exchangeRateINR : r.cprs, 
-                    r.cprsPercent,
-                    currentCurrency === 'INR' ? r.total * exchangeRateINR : r.total
-                ];
-
-                const curFmt = currentCurrency === 'INR' ? '"₹"#,##0.00' : '"$"#,##0.00';
-                
-                row.getCell(4).numFmt = curFmt;
-                row.getCell(5).numFmt = curFmt;
-                row.getCell(6).numFmt = '0.00%';
-                row.getCell(7).numFmt = curFmt;
-                row.getCell(8).numFmt = '0.00%';
-                row.getCell(9).numFmt = curFmt;
-                row.getCell(10).numFmt = '0.00%';
-                row.getCell(11).numFmt = curFmt;
-                
-                if(row.getCell(4).value > 0) { row.getCell(4).font = { color: { argb: 'FFEF4444' }, bold: true }; }
-                currentRow++;
-            });
-
-            for (let r = 5; r < currentRow; r++) {
-                for (let c = 1; c <= 11; c++) {
-                    ws.getCell(r, c).border = { top: {style:'thin', color:{argb:'FFE2E8F0'}}, left: {style:'thin', color:{argb:'FFE2E8F0'}}, bottom: {style:'thin', color:{argb:'FFE2E8F0'}}, right: {style:'thin', color:{argb:'FFE2E8F0'}} };
-                }
-            }
-
-            const buffer = await wb.xlsx.writeBuffer();
-            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            
-            const now = new Date();
-            const ts = `${now.getFullYear()}_${pad(now.getMonth()+1)}_${pad(now.getDate())}_${pad(now.getHours())}_${pad(now.getMinutes())}_${pad(now.getSeconds())}`;
-            
-            const url = URL.createObjectURL(blob);
-            const dl = document.createElement('a');
-            dl.href = url; dl.download = `Family_Ledger_as_on_${ts}.xlsx`; dl.click();
-            URL.revokeObjectURL(url);
-        }
-
-        window.addEventListener('beforeunload', function (e) {
-            if (hasUnsavedChanges) { e.preventDefault(); e.returnValue = ''; }
-        });
-
-        init();
-    </script>
+  </main>
+  <div id="overflowModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="overflowTitle" hidden><div class="modal-content">
+    <button class="icon-button btn-small modal-close" type="button" data-close-modal="overflowModal" aria-label="Close balance review">×</button><h2 id="overflowTitle">Balance review</h2><p id="overflowMessage"></p><p class="small">The $500,000 threshold is a family workflow reminder, not an enforced rule. You may record a withdrawal or keep the balance as-is.</p>
+    <form id="withdrawalForm" novalidate><div class="form-group"><label for="withdrawalDate">Withdrawal date</label><input id="withdrawalDate" type="date" required></div><div class="form-group"><label for="withdrawalAccount">Withdraw from</label><select id="withdrawalAccount" required></select></div><div class="form-group"><label for="withdrawalAmount">Withdrawal amount (USD)</label><input id="withdrawalAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div><div class="modal-actions"><button id="keepExcessButton" class="btn-outline" type="button">Keep balance as-is</button><button class="btn-danger" type="submit">Record withdrawal</button></div></form>
+  </div></div>
+  <div id="editRecordModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="editRecordTitle" hidden><div class="modal-content">
+    <button class="icon-button btn-small modal-close" type="button" data-close-modal="editRecordModal" aria-label="Close editor">×</button><h2 id="editRecordTitle">Edit ledger entry</h2>
+    <p id="editRecordHint" class="small"></p>
+    <form id="editRecordForm" novalidate><div id="editRecordFields"></div><div class="modal-actions"><button class="btn-outline" type="button" data-close-modal="editRecordModal">Cancel</button><button class="btn-warning" type="submit">Save changes</button></div></form>
+  </div></div>
+  <div id="helpModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden><div class="modal-content">
+    <button class="icon-button btn-small modal-close" type="button" data-close-modal="helpModal" aria-label="Close help">×</button><h2 id="helpTitle">Family Ledger — SOP and help</h2>
+    <ol class="help-list">
+      <li><strong>Start or load.</strong> For a new ledger, enter the baseline date and each starting bucket balance. To continue an existing ledger, use <em>Load JSON backup</em>. Existing legacy array backups are upgraded safely on import.</li>
+      <li><strong>Use USD for entries.</strong> Record a new total whenever you value the combined accounts. The app allocates the change to buckets using the current split and whole-cent rounding.</li>
+      <li><strong>Add fresh money.</strong> Use <em>Add new funds</em> to put money such as a new $5,000 directly into any bucket. The total and split percentages update from the new composition.</li>
+      <li><strong>Move money with a transfer.</strong> Pick the source, destination, date, and amount. Transfers cannot exceed the source balance.</li>
+      <li><strong>Add accounts when needed.</strong> Use “Add another bucket” for a name such as SANp. It starts at zero; use a transfer or new-funds entry to fund it.</li>
+      <li><strong>Review the limit prompt.</strong> Totals above $500,000 open a reminder. Record a validated withdrawal from any bucket or keep the balance unchanged.</li>
+      <li><strong>Save routinely.</strong> Save a timestamped JSON backup after changes, preferably in your own protected cloud folder. JSON is the canonical backup; Excel is a presentation report.</li>
+      <li><strong>Start another ledger safely.</strong> The “Start another new ledger” button opens a separate blank ledger window. Your current window and in-memory ledger stay unchanged.</li>
+      <li><strong>Live local time.</strong> The panda title updates every second using this browser’s local time zone. It does not perform an IP-location lookup.</li>
+      <li><strong>Privacy.</strong> The app does not upload ledger data. It fetches the USD/INR rate automatically on page load and lets you refresh it; Excel export loads only when requested. Those third-party services receive ordinary connection metadata, never intentionally ledger values.</li>
+      <li><strong>Safety.</strong> Load only family backups you trust. JSON is editable and this tool is a family organizer, not audited accounting software.</li>
+      <li><strong>Author and owner.</strong> Babuptx — <a href="mailto:babuptx@gmail.com">babuptx@gmail.com</a>.</li>
+    </ol><div class="modal-actions"><button class="btn-outline" type="button" data-close-modal="helpModal">Close help</button></div>
+  </div></div>
+  <button id="helpButton" type="button" aria-label="Open Family Ledger help and SOP" title="Help and SOP">?</button>
+  <footer class="legal-footer">© 2026 Babuptx · Author and owner: <a href="mailto:babuptx@gmail.com">babuptx@gmail.com</a> · Local-first family tool — no ledger data is uploaded by this app. The USD/INR rate refreshes through a third-party service; Excel export loads a third-party library only when requested.</footer>
 </body>
 </html>
